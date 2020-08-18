@@ -20,6 +20,18 @@ err = dec.DecodeStruct(&input)
 if err != nil {/* ... */}
 ```
 
+## Changelog
+
+### v0.1.3
+
+When decoding into a struct where some of the fields are embedded struct pointers, those nested structs are allocated only if some of their fields are present in the request.
+
+Also moved some reflection-related utils to a [tiny dependency](https://github.com/mitranim/refut).
+
+### v0.1.2
+
+First tagged release.
+
 ## License
 
 https://en.wikipedia.org/wiki/WTFPL

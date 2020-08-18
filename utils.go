@@ -8,7 +8,8 @@ import (
 	"io/ioutil"
 	"net/http"
 	"reflect"
-	"strings"
+
+	"github.com/mitranim/refut"
 )
 
 /* Errors */
@@ -55,40 +56,7 @@ func isSlice(value interface{}) bool {
 		return false
 	}
 	rtype := reflect.TypeOf(value)
-	return derefRtype(rtype).Kind() == reflect.Slice
-}
-
-func derefRtype(rtype reflect.Type) reflect.Type {
-	for rtype != nil && rtype.Kind() == reflect.Ptr {
-		rtype = rtype.Elem()
-	}
-	return rtype
-}
-
-/*
-Recursively dereferences a `reflect.Value` until it's not a pointer type. Panics
-if any pointer in the sequence is nil.
-*/
-func derefRval(rval reflect.Value) reflect.Value {
-	for rval.Kind() == reflect.Ptr {
-		rval = rval.Elem()
-	}
-	return rval
-}
-
-/*
-Derefs the provided value until it's no longer a pointer, allocating as
-necessary. Returns a non-pointer value. The input value must be settable or a
-non-nil pointer, otherwise this causes a panic.
-*/
-func derefAllocRval(rval reflect.Value) reflect.Value {
-	for rval.Kind() == reflect.Ptr {
-		if rval.IsNil() {
-			rval.Set(reflect.New(rval.Type().Elem()))
-		}
-		rval = rval.Elem()
-	}
-	return rval
+	return refut.RtypeDeref(rtype).Kind() == reflect.Slice
 }
 
 func settableRval(input interface{}) (reflect.Value, error) {
@@ -115,62 +83,8 @@ func settableStructRval(out interface{}) (reflect.Value, error) {
 	return rval, nil
 }
 
-/*
-TODO: consider passing the entire path from the root value rather than the field
-index. This is more expensive but allows the caller to choose to allocate deeply
-nested fields on demand.
-*/
-func traverseStructRvalueFields(rval reflect.Value, fun func(reflect.Value, int) error) error {
-	rval = derefRval(rval)
-	rtype := rval.Type()
-	if rtype.Kind() != reflect.Struct {
-		return fmt.Errorf("expected a struct, got a %q", rtype)
-	}
-
-	for i := 0; i < rtype.NumField(); i++ {
-		sfield := rtype.Field(i)
-		if !isStructFieldPublic(sfield) {
-			continue
-		}
-
-		/**
-		If this is an embedded struct, traverse its fields as if they're in the
-		parent struct.
-		*/
-		if sfield.Anonymous && derefRtype(sfield.Type).Kind() == reflect.Struct {
-			err := traverseStructRvalueFields(rval.Field(i), fun)
-			if err != nil {
-				return err
-			}
-			continue
-		}
-
-		err := fun(rval, i)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func isStructFieldPublic(sfield reflect.StructField) bool {
-	return sfield.PkgPath == ""
-}
-
-func structFieldName(sfield reflect.StructField) string {
-	return jsonTagToFieldName(sfield.Tag.Get("json"))
-}
-
-func jsonTagToFieldName(tag string) string {
-	if tag == "-" {
-		return ""
-	}
-	index := strings.IndexRune(tag, ',')
-	if index >= 0 {
-		return tag[:index]
-	}
-	return tag
+func sfieldJsonName(sfield reflect.StructField) string {
+	return refut.TagIdent(sfield.Tag.Get("json"))
 }
 
 func isHttpMethodReadOnly(method string) bool {

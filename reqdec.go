@@ -34,6 +34,7 @@ import (
 	"net/url"
 	"reflect"
 
+	"github.com/mitranim/refut"
 	"github.com/mitranim/untext"
 )
 
@@ -128,9 +129,8 @@ func (self Reqdec) DecodeStruct(dest interface{}) error {
 		return Err{Cause: err}
 	}
 
-	return traverseStructRvalueFields(rootRval, func(structRval reflect.Value, fieldIndex int) error {
-		sfield := derefRtype(structRval.Type()).Field(fieldIndex)
-		fieldName := structFieldName(sfield)
+	return refut.TraverseStructRtype(rootRval.Type(), func(sfield reflect.StructField, path []int) error {
+		fieldName := sfieldJsonName(sfield)
 
 		if !self.Has(fieldName) {
 			return nil
@@ -138,8 +138,7 @@ func (self Reqdec) DecodeStruct(dest interface{}) error {
 
 		// If this is a nested struct, we allocate it only after finding
 		// something worth decoding.
-		structRval = derefAllocRval(structRval)
-		fieldPtr := structRval.Field(fieldIndex).Addr().Interface()
+		fieldPtr := refut.RvalFieldByPathAlloc(rootRval, path).Addr().Interface()
 		return self.DecodeAt(fieldName, fieldPtr)
 	})
 }
