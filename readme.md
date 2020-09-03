@@ -22,6 +22,10 @@ if err != nil {/* ... */}
 
 ## Changelog
 
+### v0.1.4
+
+Changed the license to Unlicense.
+
 ### v0.1.3
 
 When decoding into a struct where some of the fields are embedded struct pointers, those nested structs are allocated only if some of their fields are present in the request.

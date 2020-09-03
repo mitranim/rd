@@ -1,4 +1,4 @@
-github.com/mitranim/refut v0.1.1 h1:mnRHhtBVVwoBGtA2hzcA+7Vx3onTYWCPjiGSgc+sfRI=
-github.com/mitranim/refut v0.1.1/go.mod h1:9O95AVuyyTxuGH1qXSzuzu0YWWGKKWFYsfHTSX3L1ls=
-github.com/mitranim/untext v0.1.1 h1:6cEp0cPZ6ngRH5q7H5yzcEhyJyp9gPnCvd6GAkfMX7A=
-github.com/mitranim/untext v0.1.1/go.mod h1:KzFJO8welzzzQr/XbC7H8th64RY+P8Chmoje6mhIGl0=
+github.com/mitranim/refut v0.1.2 h1:PkJkJC8eWh0shCrrYJBJlN2BYa0oY+v5r0iTUs3haRc=
+github.com/mitranim/refut v0.1.2/go.mod h1:9O95AVuyyTxuGH1qXSzuzu0YWWGKKWFYsfHTSX3L1ls=
+github.com/mitranim/untext v0.1.2 h1:oAWqQqfQ+rWD60/cA2xqmh2GJCmJiMuEe2AlF3X1N7Q=
+github.com/mitranim/untext v0.1.2/go.mod h1:KzFJO8welzzzQr/XbC7H8th64RY+P8Chmoje6mhIGl0=
