@@ -39,6 +39,17 @@ import (
 )
 
 /*
+Interface for types that decode from `[]string`. Useful for parsing lists from
+form-encoded sources such as URL queries and form bodies. This should be
+implemented by any type that wants to be parsed from a list, but by itself is
+not a slice. Slice types don't need this; they're automatically allocated and
+each item is parsed individually.
+*/
+type SliceParser interface {
+	ParseSlice([]string) error
+}
+
+/*
 Request decoder obtained by calling `Download()`.
 */
 type Reqdec struct {
@@ -157,13 +168,19 @@ func (self Reqdec) DecodeAt(key string, dest interface{}) error {
 
 	vals := self.formDict[key]
 
+	parser, ok := dest.(SliceParser)
+	if ok {
+		return parser.ParseSlice(vals)
+	}
+
 	/**
 	Support unmarshaling a slice from `url.Values` where each value is included
 	individually. Example:
 
-		?value=10&value=20&value=30
+		struct { Value []int64 `json:"value"` }
 
-		var input struct { Value []int64 }
+		"?value=10&value=20&value=30"
+
 	*/
 	if len(vals) > 0 && isSlice(dest) {
 		return untext.UnmarshalSlice(vals, dest)

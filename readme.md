@@ -22,6 +22,10 @@ if err != nil {/* ... */}
 
 ## Changelog
 
+### v0.1.5
+
+Added `SliceParser` for parsing non-slices from lists.
+
 ### v0.1.4
 
 Changed the license to Unlicense.
