@@ -58,6 +58,25 @@ type Reqdec struct {
 }
 
 /*
+Constructs a decoder that will decode from the given URL values. The values may
+come from any source, such as request query, POST formdata, manually
+constructed, etc. This should only be used in edge cases, such as when decoding
+simulataneously from POST body and from URL query. For the general case,
+construct your decoders using `Download`.
+*/
+func FromQuery(vals url.Values) Reqdec {
+	return Reqdec{formDict: vals}
+}
+
+/*
+Shortcut for constructing a decoder via `FromQuery` from the URL query of the
+given request.
+*/
+func FromReqQuery(req *http.Request) Reqdec {
+	return FromQuery(req.URL.Query())
+}
+
+/*
 Downloads the HTTP request and returns a `Reqdec` populated with the request's
 body, decoded in accordance with the declared content type.
 */

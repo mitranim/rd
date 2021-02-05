@@ -22,6 +22,10 @@ if err != nil {/* ... */}
 
 ## Changelog
 
+### v0.1.6
+
+Added `FromQuery` and `FromReqQuery`.
+
 ### v0.1.5
 
 Added `SliceParser` for parsing non-slices from lists.
