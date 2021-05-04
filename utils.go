@@ -1,11 +1,11 @@
 package reqdec
 
 import (
+	"bufio"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"reflect"
 
@@ -49,15 +49,21 @@ func (self Err) Unwrap() error {
 	return self.Cause
 }
 
-/* Misc */
-
-func isSlice(value interface{}) bool {
-	if value == nil {
-		return false
+func errWith(err error, status int) error {
+	if err == nil {
+		return nil
 	}
-	rtype := reflect.TypeOf(value)
-	return refut.RtypeDeref(rtype).Kind() == reflect.Slice
+
+	var local Err
+	if errors.As(err, &local) {
+		local.HttpStatus = status
+		return local
+	}
+
+	return Err{HttpStatus: status, Cause: err}
 }
+
+/* Misc */
 
 func settableRval(input interface{}) (reflect.Value, error) {
 	rval := reflect.ValueOf(input)
@@ -96,16 +102,41 @@ func isHttpMethodReadOnly(method string) bool {
 	}
 }
 
-// Allows the reader's content to be empty.
-func readJsonOptional(reader io.Reader, out interface{}) error {
-	content, err := ioutil.ReadAll(reader)
-	if err != nil {
-		return err
-	}
-
-	if len(content) == 0 {
+func readJsonOptional(src io.Reader, out interface{}) error {
+	if src == nil {
 		return nil
 	}
 
-	return json.Unmarshal(content, out)
+	// Skips decoding when the input is empty.
+	reader := bufio.NewReader(src)
+	_, err := reader.Peek(1)
+	if errors.Is(err, io.EOF) {
+		return nil
+	}
+
+	return json.NewDecoder(reader).Decode(out)
 }
+
+var nullBytes = []byte(`null`)
+
+func zeroAt(rval reflect.Value, path []int) {
+	for _, ind := range path {
+		for rval.Kind() == reflect.Ptr {
+			if rval.IsNil() {
+				return
+			}
+			rval = rval.Elem()
+		}
+		rval = rval.Field(ind)
+	}
+
+	if rval.IsValid() {
+		rval.Set(reflect.Zero(rval.Type()))
+	}
+}
+
+func fieldPtrAt(root reflect.Value, path []int) interface{} {
+	return refut.RvalFieldByPathAlloc(root, path).Addr().Interface()
+}
+
+var sliceParserRtype = reflect.TypeOf((*SliceParser)(nil)).Elem()

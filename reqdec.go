@@ -16,8 +16,8 @@ Example:
 	if err != nil {} // ...
 
 	var input struct {
-	  FieldOne string `json:"field_one"`
-	  FieldTwo int64  `json:"field_two"`
+		FieldOne string `json:"field_one"`
+		FieldTwo int64  `json:"field_two"`
 	}
 	err = dec.DecodeStruct(&input)
 	if err != nil {} // ...
@@ -25,9 +25,11 @@ Example:
 package reqdec
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"mime"
 	"mime/multipart"
 	"net/http"
@@ -50,30 +52,38 @@ type SliceParser interface {
 }
 
 /*
-Request decoder obtained by calling `Download()`.
+Request decoder. Decodes request inputs into structs. Transparently supports
+multiple content types. Once constructed, a decoder is considered immutable,
+concurrency-safe, and can be used any amount of times.
 */
 type Reqdec struct {
-	jsonDict map[string]json.RawMessage
-	formDict url.Values
+	json map[string]json.RawMessage
+	form url.Values
+}
+
+func FromJson(reader io.Reader) (Reqdec, error) {
+	var out Reqdec
+	err := readJsonOptional(reader, &out.json)
+	return out, err
 }
 
 /*
 Constructs a decoder that will decode from the given URL values. The values may
 come from any source, such as request query, POST formdata, manually
 constructed, etc. This should only be used in edge cases, such as when decoding
-simulataneously from POST body and from URL query. For the general case,
+simultaneously from POST body and from URL query. For the general case,
 construct your decoders using `Download`.
 */
-func FromQuery(vals url.Values) Reqdec {
-	return Reqdec{formDict: vals}
+func FromVals(vals url.Values) Reqdec {
+	return Reqdec{form: vals}
 }
 
 /*
-Shortcut for constructing a decoder via `FromQuery` from the URL query of the
+Shortcut for constructing a decoder via `FromVals` from the URL query of the
 given request.
 */
 func FromReqQuery(req *http.Request) Reqdec {
-	return FromQuery(req.URL.Query())
+	return FromVals(req.URL.Query())
 }
 
 /*
@@ -87,10 +97,7 @@ func Download(req *http.Request) (Reqdec, error) {
 		the URL, populating them into `Request.Form`.
 		*/
 		err := req.ParseForm()
-		if err != nil {
-			return Reqdec{}, Err{HttpStatus: http.StatusBadRequest, Cause: err}
-		}
-		return Reqdec{formDict: req.Form}, nil
+		return Reqdec{form: req.Form}, errWith(err, http.StatusBadRequest)
 	}
 
 	contentType, _, _ := mime.ParseMediaType(req.Header.Get("Content-Type"))
@@ -105,37 +112,28 @@ func Download(req *http.Request) (Reqdec, error) {
 		from the URL.
 		*/
 		err := req.ParseForm()
-		if err != nil {
-			return Reqdec{}, Err{HttpStatus: http.StatusBadRequest, Cause: err}
-		}
-		return Reqdec{formDict: req.PostForm}, nil
+		return Reqdec{form: req.PostForm}, errWith(err, http.StatusBadRequest)
 
 	case "multipart/form-data":
 		// 32 MB, same as the default in the "http" package.
 		// TODO make configurable.
 		const maxmem = 32 << 20
 		err := req.ParseMultipartForm(maxmem)
-		if err != nil {
-			if errors.Is(err, multipart.ErrMessageTooLarge) {
-				return Reqdec{}, Err{HttpStatus: http.StatusRequestEntityTooLarge, Cause: err}
-			}
-			return Reqdec{}, Err{HttpStatus: http.StatusBadRequest, Cause: err}
+		out := Reqdec{form: url.Values(req.MultipartForm.Value)}
+		if errors.Is(err, multipart.ErrMessageTooLarge) {
+			return out, errWith(err, http.StatusRequestEntityTooLarge)
 		}
-		return Reqdec{formDict: url.Values(req.MultipartForm.Value)}, nil
+		return out, errWith(err, http.StatusBadRequest)
 
 	case "application/json":
-		var out Reqdec
-		err := readJsonOptional(req.Body, &out.jsonDict)
-		if err != nil {
-			return Reqdec{}, Err{HttpStatus: http.StatusBadRequest, Cause: err}
-		}
-		return out, nil
+		out, err := FromJson(req.Body)
+		return out, errWith(err, http.StatusBadRequest)
 
 	case "":
-		return Reqdec{}, Err{HttpStatus: http.StatusBadRequest, Cause: fmt.Errorf("unspecified request body type")}
+		return Reqdec{}, errWith(fmt.Errorf("unspecified request body type"), http.StatusBadRequest)
 
 	default:
-		return Reqdec{}, Err{HttpStatus: http.StatusBadRequest, Cause: fmt.Errorf("unsupported request body type: %v", contentType)}
+		return Reqdec{}, errWith(fmt.Errorf("unsupported request body type: %v", contentType), http.StatusBadRequest)
 	}
 }
 
@@ -156,66 +154,70 @@ of its fields.
 func (self Reqdec) DecodeStruct(dest interface{}) error {
 	rootRval, err := settableStructRval(dest)
 	if err != nil {
-		return Err{Cause: err}
+		return err
 	}
 
 	return refut.TraverseStructRtype(rootRval.Type(), func(sfield reflect.StructField, path []int) error {
 		fieldName := sfieldJsonName(sfield)
-
-		if !self.Has(fieldName) {
+		if fieldName == "" {
 			return nil
 		}
 
-		// If this is a nested struct, we allocate it only after finding
-		// something worth decoding.
-		fieldPtr := refut.RvalFieldByPathAlloc(rootRval, path).Addr().Interface()
-		return self.DecodeAt(fieldName, fieldPtr)
+		if self.json != nil {
+			return self.jsonDecodeAt(rootRval, fieldName, sfield.Type, path)
+		}
+		if self.form != nil {
+			return self.formDecodeAt(rootRval, fieldName, sfield.Type, path)
+		}
+		return nil
 	})
 }
 
-/*
-Decodes the value at the given key into an arbitrary destination pointer.
-*/
-func (self Reqdec) DecodeAt(key string, dest interface{}) error {
-	if self.jsonDict != nil {
-		err := json.Unmarshal(self.jsonDict[key], dest)
-		if err != nil {
-			return Err{Cause: err}
-		}
+func (self Reqdec) jsonDecodeAt(rootRval reflect.Value, key string, rtype reflect.Type, path []int) error {
+	val, has := self.json[key]
+	if !has {
 		return nil
 	}
 
-	vals := self.formDict[key]
-
-	parser, ok := dest.(SliceParser)
-	if ok {
-		return parser.ParseSlice(vals)
+	if bytes.Equal(val, nullBytes) {
+		zeroAt(rootRval, path)
+		return nil
 	}
 
-	/**
-	Support unmarshaling a slice from `url.Values` where each value is included
-	individually. Example:
+	return json.Unmarshal(val, fieldPtrAt(rootRval, path))
+}
 
-		struct { Value []int64 `json:"value"` }
-
-		"?value=10&value=20&value=30"
-
-	*/
-	if len(vals) > 0 && isSlice(dest) {
-		return untext.UnmarshalSlice(vals, dest)
+func (self Reqdec) formDecodeAt(rootRval reflect.Value, key string, rtype reflect.Type, path []int) error {
+	vals, has := self.form[key]
+	if !has {
+		return nil
 	}
 
-	return untext.UnmarshalString(self.formDict.Get(key), dest)
+	if reflect.PtrTo(rtype).Implements(sliceParserRtype) {
+		return fieldPtrAt(rootRval, path).(SliceParser).ParseSlice(vals)
+	}
+
+	if refut.RtypeDeref(rtype).Kind() == reflect.Slice {
+		return untext.UnmarshalSlice(vals, fieldPtrAt(rootRval, path))
+	}
+
+	val := self.form.Get(key)
+	if val == "" {
+		zeroAt(rootRval, path)
+		return nil
+	}
+
+	return untext.UnmarshalString(self.form.Get(key), fieldPtrAt(rootRval, path))
 }
 
 /*
 Returns true if the request body contains the specified key.
 */
 func (self Reqdec) Has(key string) bool {
-	_, ok := self.jsonDict[key]
+	_, ok := self.json[key]
 	if ok {
 		return ok
 	}
-	_, ok = self.formDict[key]
+	_, ok = self.form[key]
 	return ok
 }
