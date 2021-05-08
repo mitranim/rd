@@ -198,7 +198,7 @@ func (self Reqdec) formDecodeAt(rootRval reflect.Value, key string, rtype reflec
 	}
 
 	if refut.RtypeDeref(rtype).Kind() == reflect.Slice {
-		return untext.UnmarshalSlice(vals, fieldPtrAt(rootRval, path))
+		return untext.ParseSlice(vals, fieldPtrAt(rootRval, path))
 	}
 
 	val := self.form.Get(key)
@@ -207,7 +207,7 @@ func (self Reqdec) formDecodeAt(rootRval reflect.Value, key string, rtype reflec
 		return nil
 	}
 
-	return untext.UnmarshalString(self.form.Get(key), fieldPtrAt(rootRval, path))
+	return untext.Parse(self.form.Get(key), fieldPtrAt(rootRval, path))
 }
 
 /*
