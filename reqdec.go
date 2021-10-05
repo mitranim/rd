@@ -61,6 +61,12 @@ type Reqdec struct {
 	form url.Values
 }
 
+/*
+Constructs a JSON-based decoder by decoding the input into the inner
+`map[string]json.RawMessage`. As usual, the resulting decoder is immutable and
+reusable. The reader is allowed to be nil or to contain zero data. However, if
+the data is non-empty, it must represent JSON "null" or an object such as "{}".
+*/
 func FromJson(reader io.Reader) (Reqdec, error) {
 	var out Reqdec
 	err := readJsonOptional(reader, &out.json)
