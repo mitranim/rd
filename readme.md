@@ -1,26 +1,70 @@
 ## Overview
 
-Tool for decoding an HTTP request into a struct. Transparently supports different content types / encoding formats (JSON, url-encoded form, multipart form). Transparently supports different request methods; for read-only methods such as GET parses inputs from the URL; for non-read-only methods parses inputs _only_ from the body.
+Short for **R**equest **D**ecoding. Missing feature of the Go standard library: decoding arbitrary HTTP requests into structs. Features:
 
-## Docs
+* Transparent support for different content types / encoding formats:
+  * URL query.
+  * URL-encoded form.
+  * Multipart form.
+  * JSON.
+* Transparent support for different HTTP methods:
+  * Read-only -> parse only URL query.
+  * Non-read-only -> parse only request body.
+* Transparent support for various text-parsing interfaces.
+* Support for membership testing (was X present in request?), useful for PATCH semantics.
+* Tiny and dependency-free.
 
-See the full documentation at https://godoc.org/github.com/mitranim/reqdec.
+API docs: https://pkg.go.dev/github.com/mitranim/rd.
 
 ## Example
 
-```go
-dec, err := reqdec.Download(req)
-if err != nil {/* ... */}
+1-call decoding. Works for any content type.
+
+```golang
+import "github.com/mitranim/rd"
+import "github.com/mitranim/try"
 
 var input struct {
   FieldOne string `json:"field_one"`
   FieldTwo int64  `json:"field_two"`
 }
-err = dec.DecodeStruct(&input)
-if err != nil {/* ... */}
+try.To(rd.Decode(req, &input))
+```
+
+Download once, decode many times. Works for any content type.
+
+```golang
+import "github.com/mitranim/rd"
+import "github.com/mitranim/try"
+
+dec := rd.TryDownload(req)
+
+var input0 struct {
+  FieldOne string `json:"field_one"`
+}
+try.To(dec.Decode(&input0))
+
+var input1 struct {
+  FieldTwo int64  `json:"field_two"`
+}
+try.To(dec.Decode(&input1))
+
+// Membership testing.
+haser := dec.Haser()
+fmt.Println(haser.Has(`fieldTwo`))
 ```
 
 ## Changelog
+
+### v0.2.0
+
+Breaking revision:
+
+* Much more flexible.
+* Much faster.
+* Much more test coverage.
+* Renamed from `reqdec` to `rd` for brevity.
+* Dependency-free.
 
 ### v0.1.7
 

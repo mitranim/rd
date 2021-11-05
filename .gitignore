@@ -1,7 +1,7 @@
 /*
-!/.gitignore
+!/.*ignore
 !/*.go
 !/go.mod
-!/go.sum
 !/readme.md
+!/makefile
 !/unlicense
