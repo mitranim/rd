@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	r "reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -352,4 +353,21 @@ func set(vals ...string) rd.Set {
 		out.Add(val)
 	}
 	return out
+}
+
+type SliceParserStruct struct{ Inner []int }
+
+func (self *SliceParserStruct) ParseSlice(vals []string) error {
+	out := self.Inner[:0]
+
+	for _, val := range vals {
+		num, err := strconv.Atoi(val)
+		if err != nil {
+			return err
+		}
+		out = append(out, num)
+	}
+
+	self.Inner = out
+	return nil
 }

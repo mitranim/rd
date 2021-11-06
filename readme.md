@@ -56,6 +56,10 @@ fmt.Println(haser.Has(`fieldTwo`))
 
 ## Changelog
 
+### v0.2.1
+
+Fixed edge case bug where `Form.Decode` wouldn't invoke `SliceParser` for non-slices.
+
 ### v0.2.0
 
 Breaking revision:

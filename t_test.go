@@ -133,8 +133,6 @@ func testParseFail(t testing.TB, src string, typ r.Type, msg string) {
 
 // `rd.ParseSlice` delegates to `rd.Parse` which is tested separately.
 // Here we mainly need to verify slice handling.
-//
-// TODO also test parsing into `rd.SliceParser`.
 func TestParseSlice(t *testing.T) {
 	test := func(exp []int, src []string, tar []int) {
 		t.Helper()
@@ -154,6 +152,12 @@ func TestParseSlice(t *testing.T) {
 	test([]int{30, 40}, []string{`30`, `40`}, []int(nil))
 	test([]int{30, 40}, []string{`30`, `40`}, []int{})
 	test([]int{30, 40}, []string{`30`, `40`}, []int{10, 20})
+}
+
+func TestParseSlice_SliceParser(t *testing.T) {
+	var tar SliceParserStruct
+	try(rd.ParseSlice([]string{`10`, `20`}, r.ValueOf(&tar).Elem()))
+	eq(t, SliceParserStruct{[]int{10, 20}}, tar)
 }
 
 // Incomplete, needs more test cases.
@@ -271,12 +275,12 @@ func TestJson_Haser(t *testing.T) {
 	eq(t, false, haser.Has(`innerNum`))
 }
 
-func TestQuery_Haser(t *testing.T) {
+func TestForm_Haser(t *testing.T) {
 	val := rd.Form(testOuterQuery)
 	eq(t, val, val.Haser())
 }
 
-func TestQuery_Has(t *testing.T) {
+func TestForm_Has(t *testing.T) {
 	haser := rd.Form(testOuterQuery)
 
 	eq(t, true, haser.Has(`embedStr`))
@@ -296,7 +300,7 @@ func TestJson_Decode(t *testing.T) {
 	eq(t, testOuter, tar)
 }
 
-func TestQuery_Decode(t *testing.T) {
+func TestForm_Decode(t *testing.T) {
 	test := func(t testing.TB, exp, tar interface{}, src url.Values) {
 		testDec(t, exp, tar, rd.Form(src))
 	}
@@ -371,6 +375,32 @@ func TestQuery_Decode(t *testing.T) {
 			testOuterQuery,
 		)
 	})
+
+	t.Run(`invokes SliceParser`, func(t *testing.T) {
+		type T struct {
+			One   SliceParserStruct `json:"one"`
+			Two   SliceParserStruct `json:"two"`
+			Three SliceParserStruct `json:"three"`
+		}
+
+		test(
+			t,
+			T{
+				One:   SliceParserStruct{[]int{70, 80}},
+				Two:   SliceParserStruct{[]int{90, 100}},
+				Three: SliceParserStruct{[]int{50, 60}},
+			},
+			T{
+				One:   SliceParserStruct{[]int{10, 20}},
+				Two:   SliceParserStruct{[]int{30, 40}},
+				Three: SliceParserStruct{[]int{50, 60}},
+			},
+			url.Values{
+				`one`: {`70`, `80`},
+				`two`: {`90`, `100`},
+			},
+		)
+	})
 }
 
 func testDec(t testing.TB, exp, tar interface{}, dec rd.Dec) {
@@ -383,7 +413,7 @@ func testDec(t testing.TB, exp, tar interface{}, dec rd.Dec) {
 	eq(t, exp, ptr.Elem().Interface())
 }
 
-func TestQuery_Parse(t *testing.T) {
+func TestForm_Parse(t *testing.T) {
 	var tar rd.Form
 	try(tar.Parse(testOuterQuery.Encode()))
 	eq(t, url.Values(tar), testOuterQuery)

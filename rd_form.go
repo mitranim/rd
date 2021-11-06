@@ -209,8 +209,13 @@ func (self Form) decodeField(root r.Value, field jsonField) error {
 
 	out := derefAllocAt(root, field.Path)
 
+	impl, _ := out.Addr().Interface().(SliceParser)
+	if impl != nil {
+		return impl.ParseSlice(input)
+	}
+
 	if out.Kind() == r.Slice {
-		return ParseSlice(input, out)
+		return parseSlice(input, out)
 	}
 
 	return Parse(input[0], out)

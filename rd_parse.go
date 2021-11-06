@@ -22,7 +22,10 @@ func ParseSlice(inputs []string, out r.Value) error {
 	if impl != nil {
 		return impl.ParseSlice(inputs)
 	}
+	return parseSlice(inputs, out)
+}
 
+func parseSlice(inputs []string, out r.Value) error {
 	if inputs == nil {
 		out.Set(r.Zero(out.Type()))
 		return nil
