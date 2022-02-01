@@ -38,7 +38,7 @@ func reqContentType(req *http.Request) string {
 Allocation-free conversion. Reinterprets a byte slice as a string. Borrowed from
 the standard library. Reasonably safe.
 */
-func bytesToMutableString(bytes []byte) string {
+func bytesString(bytes []byte) string {
 	return *(*string)(unsafe.Pointer(&bytes))
 }
 
@@ -66,6 +66,7 @@ func (nop) Decode(interface{}) error             { return nil }
 func (nop) Files(string) []*multipart.FileHeader { return nil }
 func (nop) Has(string) bool                      { return false }
 func (self nop) Haser() Haser                    { return self }
+func (nop) Set() Set                             { return nil }
 
 func trans(err *error, fun func(error) error) {
 	if *err != nil {

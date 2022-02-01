@@ -87,6 +87,13 @@ const testOuterJson = `{
 	"outerStr": "outer val"
 }`
 
+var testOuterJsonSet = rd.Set{
+	`embedStr`: struct{}{},
+	`embedNum`: struct{}{},
+	`inner`:    struct{}{},
+	`outerStr`: struct{}{},
+}
+
 const testOuterSimpleJson = `{
 	"embedStr": "embed val",
 	"embedNum": 10,
@@ -97,6 +104,12 @@ var testOuterQuery = url.Values{
 	`embedStr`: {`embed val`},
 	`embedNum`: {`10`},
 	`outerStr`: {`outer val`},
+}
+
+var testOuterQuerySet = rd.Set{
+	`embedStr`: struct{}{},
+	`embedNum`: struct{}{},
+	`outerStr`: struct{}{},
 }
 
 // nolint:structcheck,unused,govet
@@ -355,6 +368,8 @@ func set(vals ...string) rd.Set {
 	return out
 }
 
+// Exists for verifying that `SliceParser` is invoked for non-slices, not just
+// for slices.
 type SliceParserStruct struct{ Inner []int }
 
 func (self *SliceParserStruct) ParseSlice(vals []string) error {

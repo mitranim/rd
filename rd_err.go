@@ -26,7 +26,7 @@ func (self Err) HttpStatusCode() int { return self.Status }
 
 // Implement the `error` interface.
 func (self Err) Error() string {
-	return bytesToMutableString(self.Append(make([]byte, 0, 128)))
+	return bytesString(self.Append(make([]byte, 0, 128)))
 }
 
 // Appends the error representation. Used internally by `.Error`.

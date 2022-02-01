@@ -56,6 +56,10 @@ fmt.Println(haser.Has(`fieldTwo`))
 
 ## Changelog
 
+### v0.2.2
+
+Decoders now implement a new interface `Setter` that creates a `Set` of known keys.
+
 ### v0.2.1
 
 Fixed edge case bug where `Form.Decode` wouldn't invoke `SliceParser` for non-slices.

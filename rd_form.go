@@ -176,6 +176,18 @@ func (self Form) Has(key string) bool {
 func (self Form) Haser() Haser { return self }
 
 /*
+Implement `rd.Setter` by creating an `rd.Set` composed of the keys present in
+the form decoder.
+*/
+func (self Form) Set() Set {
+	out := make(Set, len(self))
+	for key := range self {
+		out.Add(key)
+	}
+	return out
+}
+
+/*
 Implement `rd.Decoder`, decoding into a struct. See `rd.Form` for the decoding
 semantics.
 */

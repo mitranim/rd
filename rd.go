@@ -19,6 +19,7 @@ const (
 type Dec interface {
 	Decoder
 	Haserer
+	Setter
 }
 
 /*
@@ -51,6 +52,9 @@ Converts to `rd.Haser`. Implemented by all decoder types in this package. For
 JSON to build a set of keys.
 */
 type Haserer interface{ Haser() Haser }
+
+// Converts to `rd.Set`. Implemented by all decoder types in this package.
+type Setter interface{ Set() Set }
 
 /*
 Interface for types that decode from `[]string`. Useful for parsing lists from

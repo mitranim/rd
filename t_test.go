@@ -264,20 +264,20 @@ func TestJson_Haser_parsing(t *testing.T) {
 }
 
 func TestJson_Haser(t *testing.T) {
-	haser := rd.Json(testOuterJson).Haser()
+	eq(t, testOuterJsonSet, rd.Json(testOuterJson).Haser())
+}
 
-	eq(t, true, haser.Has(`embedStr`))
-	eq(t, true, haser.Has(`embedNum`))
-	eq(t, true, haser.Has(`inner`))
-	eq(t, true, haser.Has(`outerStr`))
-	eq(t, false, haser.Has(``))
-	eq(t, false, haser.Has(`innerStr`))
-	eq(t, false, haser.Has(`innerNum`))
+func TestJson_Set(t *testing.T) {
+	eq(t, testOuterJsonSet, rd.Json(testOuterJson).Set())
 }
 
 func TestForm_Haser(t *testing.T) {
 	val := rd.Form(testOuterQuery)
 	eq(t, val, val.Haser())
+}
+
+func TestForm_Set(t *testing.T) {
+	eq(t, testOuterQuerySet, rd.Form(testOuterQuery).Set())
 }
 
 func TestForm_Has(t *testing.T) {
