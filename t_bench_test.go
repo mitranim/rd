@@ -109,21 +109,21 @@ func BenchmarkJson_Haser_empty(b *testing.B) {
 	}
 }
 
-func BenchmarkJson_parse_mixed(b *testing.B) {
-	dec := rd.Json(jsonSrcMixed)
-	b.ResetTimer()
-
-	for range iter(b.N) {
-		dec.Haser()
-	}
-}
-
-func Benchmark_json_parse_stdlib_mixed(b *testing.B) {
+func Benchmark_json_parse_mixed_stdlib(b *testing.B) {
 	src := []byte(jsonSrcMixed)
 	b.ResetTimer()
 
 	for range iter(b.N) {
 		parseSetWithStdlib(src)
+	}
+}
+
+func Benchmark_json_parse_mixed_ours(b *testing.B) {
+	dec := rd.Json(jsonSrcMixed)
+	b.ResetTimer()
+
+	for range iter(b.N) {
+		dec.Haser()
 	}
 }
 

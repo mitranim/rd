@@ -268,7 +268,13 @@ func (self *par) str() {
 	panic(errJsonEof)
 }
 
-// Semi-placeholder. Lacks support for Unicode escapes.
+/*
+Semi-placeholder. Doesn't support decoding Unicode escape codes such as
+\u0000, but does support detecting and handling them. Skipping a single byte
+after a backslash should be enough for our purposes, because we only care
+about detecting the closing quote character, and don't need to convert code
+sequences to characters.
+*/
 func (self *par) esc() { self.skip() }
 
 func (self *par) beforeNum() {

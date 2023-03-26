@@ -6,9 +6,16 @@ import (
 )
 
 const (
-	TypeJson  = `application/json`
-	TypeForm  = `application/x-www-form-urlencoded`
-	TypeMulti = `multipart/form-data`
+	Type = `Content-Type`
+
+	TypeJson     = `application/json`
+	TypeJsonUtf8 = `application/json; charset=utf-8`
+
+	TypeForm     = `application/x-www-form-urlencoded`
+	TypeFormUtf8 = `application/x-www-form-urlencoded; charset=utf-8`
+
+	TypeMulti     = `multipart/form-data`
+	TypeMultiUtf8 = `multipart/form-data; charset=utf-8`
 
 	// Used for `(*Request).ParseMultipartForm`.
 	// 32 MB, same as the default in the "http" package.

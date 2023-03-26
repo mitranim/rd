@@ -56,6 +56,12 @@ fmt.Println(haser.Has(`fieldTwo`))
 
 ## Changelog
 
+### v0.2.3
+
+Internal change: renamed `Error.Append` to `Error.AppendTo` for consistency with other libraries.
+
+Minor change: added `Type`, `TypeJsonUtf8`, `TypeFormUtf8`, `TypeMultiUtf8`.
+
 ### v0.2.2
 
 Decoders now implement a new interface `Setter` that creates a `Set` of known keys.

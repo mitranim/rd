@@ -311,7 +311,7 @@ func (self Req) BodyMulti(src url.Values) Req {
 
 func (self Req) Type(val string) Req {
 	self = self.Init()
-	self.Header.Set(`Content-Type`, val)
+	self.Header.Set(rd.Type, val)
 	return self
 }
 

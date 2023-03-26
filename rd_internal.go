@@ -30,7 +30,7 @@ func isReqReadOnly(req *http.Request) bool {
 }
 
 func reqContentType(req *http.Request) string {
-	val, _, _ := mime.ParseMediaType(req.Header.Get(`Content-Type`))
+	val, _, _ := mime.ParseMediaType(req.Header.Get(Type))
 	return val
 }
 
