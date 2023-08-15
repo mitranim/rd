@@ -25,9 +25,7 @@ func (self Err) Unwrap() error { return self.Cause }
 func (self Err) HttpStatusCode() int { return self.Status }
 
 // Implement the `error` interface.
-func (self Err) Error() string {
-	return bytesString(self.AppendTo(make([]byte, 0, 128)))
-}
+func (self Err) Error() string { return bytesString(self.AppendTo(nil)) }
 
 // Appends the error representation. Used internally by `.Error`.
 func (self Err) AppendTo(buf []byte) []byte {
@@ -51,6 +49,30 @@ func (self Err) AppendTo(buf []byte) []byte {
 	}
 
 	return buf
+}
+
+// Implement `fmt.Formatter`.
+func (self Err) Format(out fmt.State, verb rune) {
+	if out.Flag('+') {
+		msg := self.AppendTo(nil)
+		_, _ = out.Write(msg)
+
+		if self.Cause != nil {
+			if len(msg) > 0 {
+				_, _ = io.WriteString(out, "\ncause:\n")
+			}
+			fmt.Fprintf(out, `%+v`, self.Cause)
+		}
+		return
+	}
+
+	if out.Flag('#') {
+		type Error Err
+		fmt.Fprintf(out, `%#v`, Error(self))
+		return
+	}
+
+	_, _ = out.Write(self.AppendTo(nil))
 }
 
 func errBadReq(err error) error {

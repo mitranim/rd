@@ -33,14 +33,14 @@ func parseSet(src string) Set {
 // Short for "parser".
 type par struct {
 	src string // Short for "source".
-	cur int    // Short for "cursor".
+	pos int    // Short for "position".
 	lvl int    // Short for "level".
 	out Set    // Short for "output".
 }
 
 func (self *par) top() {
 	if self.next() && self.peek() == '{' {
-		self.cur++
+		self.pos++
 		self.obj()
 	}
 }
@@ -50,32 +50,32 @@ func (self *par) any() {
 	char := self.peek()
 
 	if digits.has(char) {
-		self.cur++
+		self.pos++
 		self.num()
 		return
 	}
 
 	switch char {
 	case '{':
-		self.cur++
+		self.pos++
 		self.obj()
 	case '[':
-		self.cur++
+		self.pos++
 		self.arr()
 	case '"':
-		self.cur++
+		self.pos++
 		self.str()
 	case 'n':
-		self.cur++
+		self.pos++
 		self.ident(`ull`)
 	case 't':
-		self.cur++
+		self.pos++
 		self.ident(`rue`)
 	case 'f':
-		self.cur++
+		self.pos++
 		self.ident(`alse`)
 	case '-':
-		self.cur++
+		self.pos++
 		self.beforeNum()
 	default:
 		panic(self.err())
@@ -115,12 +115,12 @@ func (self *par) obj() {
 		{
 			switch self.peek() {
 			case '}':
-				self.cur++
+				self.pos++
 				self.lvl--
 				return
 
 			case '"':
-				self.cur++
+				self.pos++
 				self.key()
 				mode = afterKey
 				continue
@@ -134,7 +134,7 @@ func (self *par) obj() {
 		{
 			switch self.peek() {
 			case ':':
-				self.cur++
+				self.pos++
 				mode = afterColon
 				continue
 
@@ -152,12 +152,12 @@ func (self *par) obj() {
 		{
 			switch self.peek() {
 			case '}':
-				self.cur++
+				self.pos++
 				self.lvl--
 				return
 
 			case ',':
-				self.cur++
+				self.pos++
 				mode = afterComma
 				continue
 
@@ -181,10 +181,10 @@ func (self *par) obj() {
 }
 
 func (self *par) key() {
-	pos := self.cur
+	pos := self.pos
 	self.str()
 	if self.lvl == 1 {
-		self.add(self.src[pos : self.cur-1])
+		self.add(self.src[pos : self.pos-1])
 	}
 }
 
@@ -213,7 +213,7 @@ func (self *par) arr() {
 
 	beforeVal:
 		if self.peek() == ']' {
-			self.cur++
+			self.pos++
 			self.lvl--
 			return
 		}
@@ -226,12 +226,12 @@ func (self *par) arr() {
 		{
 			switch self.peek() {
 			case ']':
-				self.cur++
+				self.pos++
 				self.lvl--
 				return
 
 			case ',':
-				self.cur++
+				self.pos++
 				mode = afterComma
 				continue
 
@@ -256,10 +256,10 @@ func (self *par) str() {
 	for self.more() {
 		switch self.peek() {
 		case '"':
-			self.cur++
+			self.pos++
 			return
 		case '\\':
-			self.cur++
+			self.pos++
 			self.esc()
 		default:
 			self.skipChar()
@@ -281,7 +281,7 @@ func (self *par) beforeNum() {
 	if !digits.has(self.peek()) {
 		panic(self.err())
 	}
-	self.cur++
+	self.pos++
 	self.num()
 }
 
@@ -294,17 +294,17 @@ func (self *par) num() {
 		}
 
 		if digits.has(char) {
-			self.cur++
+			self.pos++
 			continue
 		}
 
 		if char == '.' {
-			self.cur++
+			self.pos++
 			goto mant
 		}
 
 		if exps.has(char) {
-			self.cur++
+			self.pos++
 			goto exp
 		}
 
@@ -318,7 +318,7 @@ mant:
 		if !digits.has(char) {
 			panic(self.err())
 		}
-		self.cur++
+		self.pos++
 
 		for self.more() {
 			char := self.peek()
@@ -328,12 +328,12 @@ mant:
 			}
 
 			if digits.has(char) {
-				self.cur++
+				self.pos++
 				continue
 			}
 
 			if exps.has(char) {
-				self.cur++
+				self.pos++
 				goto exp
 			}
 
@@ -345,7 +345,7 @@ mant:
 exp:
 	{
 		if signs.has(self.peek()) {
-			self.cur++
+			self.pos++
 		}
 		goto expRest
 	}
@@ -355,7 +355,7 @@ expRest:
 	if !digits.has(char) {
 		panic(self.err())
 	}
-	self.cur++
+	self.pos++
 
 	for self.more() {
 		char := self.peek()
@@ -365,7 +365,7 @@ expRest:
 		}
 
 		if digits.has(char) {
-			self.cur++
+			self.pos++
 			continue
 		}
 
@@ -375,7 +375,7 @@ expRest:
 
 func (self *par) ident(prefix string) {
 	if strings.HasPrefix(self.rest(), prefix) {
-		self.cur += len(prefix)
+		self.pos += len(prefix)
 		if !self.more() || delims.has(self.peek()) {
 			return
 		}
@@ -384,13 +384,13 @@ func (self *par) ident(prefix string) {
 }
 
 func (self *par) more() bool {
-	return self.cur < len(self.src)
+	return self.pos < len(self.src)
 }
 
 func (self *par) next() bool {
-	for self.cur < len(self.src) {
-		if whitespace.has(self.src[self.cur]) {
-			self.cur++
+	for self.pos < len(self.src) {
+		if whitespace.has(self.src[self.pos]) {
+			self.pos++
 			continue
 		}
 		return true
@@ -399,21 +399,21 @@ func (self *par) next() bool {
 }
 
 func (self *par) rest() string {
-	return self.src[self.cur:]
+	return self.src[self.pos:]
 }
 
 func (self *par) peek() byte {
 	if !self.more() {
 		panic(errJsonEof)
 	}
-	return self.src[self.cur]
+	return self.src[self.pos]
 }
 
-func (self *par) skip() { self.cur++ }
+func (self *par) skip() { self.pos++ }
 
 func (self *par) skipChar() {
 	_, size := utf8.DecodeRuneInString(self.rest())
-	self.cur += size
+	self.pos += size
 }
 
 func (self *par) add(key string) {
@@ -429,11 +429,11 @@ func (self *par) err() error {
 	if len(rest) > 0 {
 		return fmt.Errorf(
 			`invalid JSON syntax in position %v: unexpected %q`,
-			self.cur, rest,
+			self.pos, rest,
 		)
 	}
 
-	return fmt.Errorf(`unexpected JSON %w in position %v`, io.EOF, self.cur)
+	return fmt.Errorf(`unexpected JSON %w in position %v`, io.EOF, self.pos)
 }
 
 type charset [256]bool
