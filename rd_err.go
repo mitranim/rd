@@ -102,7 +102,7 @@ func errParse(err error, input string, out r.Type) error {
 
 func errContentType(typ string) error {
 	if typ == `` {
-		return errBadReq(fmt.Errorf(`unspecified content type`))
+		return errBadReq(fmt.Errorf(`missing content type`))
 	}
 	return errBadReq(fmt.Errorf(`unsupported content type %q`, typ))
 }

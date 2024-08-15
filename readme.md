@@ -56,6 +56,12 @@ fmt.Println(haser.Has(`fieldTwo`))
 
 ## Changelog
 
+### v0.3.0
+
+`Decode` and `Download` now use the URL query when the request has no body and no content type. This library no longer checks the HTTP method of the request. Read-only methods and non-read-only methods are treated the same.
+
+Removed `Form.Download`, `TypeJsonUtf8`, `TypeFormUtf8`, `TypeMultiUtf8`.
+
 ### v0.2.3
 
 Internal change: renamed `Error.Append` to `Error.AppendTo` for consistency with other libraries.

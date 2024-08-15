@@ -419,26 +419,17 @@ func TestForm_Parse(t *testing.T) {
 	eq(t, url.Values(tar), testOuterQuery)
 }
 
-func TestDecode_read_only(t *testing.T) {
-	test := func(typ string) {
-		t.Helper()
+func TestDecode_GET_query(t *testing.T) {
+	req := Req{}.Query(testOuterQuery).Ptr()
 
-		req := Req{}.Type(typ).Query(testOuterQuery).BodyReader(panicReader{}).Ptr()
-		eq(t, testOuterQuery, req.URL.Query())
+	var tar Outer
+	rd.TryDecode(req, &tar)
 
-		var tar Outer
-		rd.TryDecode(req, &tar)
-
-		eq(t, testOuterSimple, tar)
-	}
-
-	test(rd.TypeJson)
-	test(rd.TypeForm)
-	test(rd.TypeMulti)
+	eq(t, testOuterSimple, tar)
 }
 
-func TestDecode_json(t *testing.T) {
-	req := Req{}.Post().Query(testUrlQuery).BodyJson(testOuterJson).Ptr()
+func TestDecode_GET_json(t *testing.T) {
+	req := Req{}.BodyJson(testOuterJson).Ptr()
 
 	var tar Outer
 	rd.TryDecode(req, &tar)
@@ -446,7 +437,16 @@ func TestDecode_json(t *testing.T) {
 	eq(t, testOuter, tar)
 }
 
-func TestDecode_form(t *testing.T) {
+func TestDecode_POST_json(t *testing.T) {
+	req := Req{}.Post().BodyJson(testOuterJson).Ptr()
+
+	var tar Outer
+	rd.TryDecode(req, &tar)
+
+	eq(t, testOuter, tar)
+}
+
+func TestDecode_POST_form(t *testing.T) {
 	req := Req{}.Post().Query(testUrlQuery).BodyForm(testOuterQuery).Ptr()
 
 	var tar Outer
@@ -455,7 +455,7 @@ func TestDecode_form(t *testing.T) {
 	eq(t, testOuterSimple, tar)
 }
 
-func TestDecode_multi(t *testing.T) {
+func TestDecode_POST_multi(t *testing.T) {
 	req := Req{}.Post().Query(testUrlQuery).BodyMulti(testOuterQuery).Ptr()
 
 	var tar Outer
@@ -464,30 +464,27 @@ func TestDecode_multi(t *testing.T) {
 	eq(t, testOuterSimple, tar)
 }
 
-func TestDownload_read_only(t *testing.T) {
-	test := func(typ string) {
-		t.Helper()
-		req := Req{}.Type(typ).Query(testOuterQuery).BodyReader(panicReader{}).Ptr()
-		eq(t, testOuterQuery, req.URL.Query())
-		eq(t, rd.Form(req.URL.Query()), rd.TryDownload(req))
-	}
-
-	test(rd.TypeJson)
-	test(rd.TypeForm)
-	test(rd.TypeMulti)
+func TestDownload_GET_query(t *testing.T) {
+	req := Req{}.Query(testOuterQuery).Ptr()
+	eq(t, rd.Form(req.URL.Query()), rd.TryDownload(req))
 }
 
-func TestDownload_json(t *testing.T) {
+func TestDownload_POST_query(t *testing.T) {
+	req := Req{}.Post().Query(testOuterQuery).Ptr()
+	eq(t, rd.Form(req.URL.Query()), rd.TryDownload(req))
+}
+
+func TestDownload_POST_json(t *testing.T) {
 	req := Req{}.Post().Query(testUrlQuery).BodyJson(testJsonStr).Ptr()
 	eq(t, rd.Json(testJsonStr), rd.TryDownload(req))
 }
 
-func TestDownload_form(t *testing.T) {
+func TestDownload_POST_form(t *testing.T) {
 	req := Req{}.Post().Query(testUrlQuery).BodyForm(testBodyQuery).Ptr()
 	eq(t, rd.Form(testBodyQuery), rd.TryDownload(req))
 }
 
-func TestDownload_Multi(t *testing.T) {
+func TestDownload_POST_multi(t *testing.T) {
 	req := Req{}.Post().Query(testUrlQuery).BodyMulti(testBodyQuery).Ptr()
 	eq(t, rd.Form(testBodyQuery), rd.TryDownload(req))
 }

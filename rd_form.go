@@ -48,29 +48,6 @@ Differences from "encoding/json":
 */
 type Form url.Values
 
-/*
-Similar to the top-level function `rd.Download`, but without JSON support. For
-read-only requests, populates the receiver from the URL query. For
-non-read-only requests, populates the receiver from the request body, choosing
-the parsing mode from the request's content type header.
-
-If the request is multipart, this also populates `req.MultipartForm` as a side
-effect. Downloaded files become available via `req.MultipartForm.File`.
-*/
-func (self *Form) Download(req *http.Request) error {
-	if req == nil {
-		self.Zero()
-		return nil
-	}
-
-	if isReqReadOnly(req) {
-		*self = Form(req.URL.Query())
-		return nil
-	}
-
-	return self.DownloadBody(req, reqContentType(req))
-}
-
 // Downloads the request body and populates the receiver based on the given
 // content type. Used by `(*rd.Form).Download`.
 func (self *Form) DownloadBody(req *http.Request, typ string) error {
@@ -192,6 +169,10 @@ Implement `rd.Decoder`, decoding into a struct. See `rd.Form` for the decoding
 semantics.
 */
 func (self Form) Decode(outVal interface{}) (err error) {
+	if !(len(self) > 0) {
+		return nil
+	}
+
 	defer trans(&err, errBadReq)
 
 	out, err := derefStruct(r.ValueOf(outVal))
@@ -231,4 +212,18 @@ func (self Form) decodeField(root r.Value, field jsonField) error {
 	}
 
 	return Parse(input[0], out)
+}
+
+func reqQuery(req *http.Request) url.Values {
+	if req == nil {
+		return nil
+	}
+	url := req.URL
+	if url == nil {
+		return nil
+	}
+	if url.RawQuery == `` {
+		return nil
+	}
+	return url.Query()
 }

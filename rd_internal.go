@@ -14,19 +14,15 @@ var (
 	typeBytes = r.TypeOf((*[]byte)(nil)).Elem()
 )
 
-func try(err error) {
-	if err != nil {
-		panic(err)
-	}
-}
-
-func isReqReadOnly(req *http.Request) bool {
-	switch req.Method {
-	case http.MethodGet, http.MethodHead, http.MethodOptions:
-		return true
-	default:
-		return false
-	}
+/*
+We should attempt to decode or download request body only when it's actually
+present. When the body is not present, we should not require the client to
+specify content type, as it's not needed. This clause uses `== 0`, rather than
+`<= 0`, because the documentation for `http.Request` states that -1 means
+unknown length.
+*/
+func reqHasBody(req *http.Request) bool {
+	return req != nil && req.Body != nil && req.ContentLength != 0
 }
 
 func reqContentType(req *http.Request) string {
@@ -59,14 +55,14 @@ func stringToBytesUnsafe(val string) []byte {
 	return *(*[]byte)(unsafe.Pointer(&slice))
 }
 
-type nop struct{}
+type decEmpty struct{}
 
-func (nop) Download(*http.Request) error         { return nil }
-func (nop) Decode(interface{}) error             { return nil }
-func (nop) Files(string) []*multipart.FileHeader { return nil }
-func (nop) Has(string) bool                      { return false }
-func (self nop) Haser() Haser                    { return self }
-func (nop) Set() Set                             { return nil }
+func (decEmpty) Download(*http.Request) error         { return nil }
+func (decEmpty) Decode(interface{}) error             { return nil }
+func (decEmpty) Files(string) []*multipart.FileHeader { return nil }
+func (decEmpty) Has(string) bool                      { return false }
+func (self decEmpty) Haser() Haser                    { return self }
+func (decEmpty) Set() Set                             { return nil }
 
 func trans(err *error, fun func(error) error) {
 	if *err != nil {
@@ -221,7 +217,7 @@ func appendJsonFields(buf *[]jsonField, path *[]int, typ r.Type, index int) {
 }
 
 func isSliceEmpty(val []string) bool {
-	return len(val) == 0 || (len(val) == 1 && val[0] == ``)
+	return !(len(val) > 0) || (len(val) == 1 && val[0] == ``)
 }
 
 func typeBits(typ r.Type) int {

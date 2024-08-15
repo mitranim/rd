@@ -6,16 +6,10 @@ import (
 )
 
 const (
-	Type = `Content-Type`
-
-	TypeJson     = `application/json`
-	TypeJsonUtf8 = `application/json; charset=utf-8`
-
-	TypeForm     = `application/x-www-form-urlencoded`
-	TypeFormUtf8 = `application/x-www-form-urlencoded; charset=utf-8`
-
-	TypeMulti     = `multipart/form-data`
-	TypeMultiUtf8 = `multipart/form-data; charset=utf-8`
+	Type      = `Content-Type`
+	TypeJson  = `application/json`
+	TypeForm  = `application/x-www-form-urlencoded`
+	TypeMulti = `multipart/form-data`
 
 	// Used for `(*Request).ParseMultipartForm`.
 	// 32 MB, same as the default in the "http" package.
@@ -83,42 +77,53 @@ type Parser interface{ Parse(string) error }
 
 // Shortcut for `rd.Decode` that panics on errors.
 func TryDecode(req *http.Request, out interface{}) {
-	try(Decode(req, out))
+	err := Decode(req, out)
+	if err != nil {
+		panic(err)
+	}
 }
 
 /*
-Decodes an arbitrary request into an arbitrary Go structure. Transparently
-supports multiple content types: URL query, URL-encoded body, multipart body,
-and JSON. Read-only requests are decoded ONLY from the URL query, and other
-requests are decoded ONLY from the body. For non-JSON requests, the output must
-be a struct pointer. For JSON requests, the output may be a pointer to
-anything.
+Decodes an arbitrary request into an arbitrary Go structure. Uses the request's
+`Content-Type` header to choose the decoding method.
 
-If the request is multipart, this also populates `req.MultipartForm` as a side
-effect. Downloaded files become available via `req.MultipartForm.File`.
+When `Content-Type` is present but unrecognized, returns an error.
 
-Unlike `rd.Download`, this uses stream decoding for JSON, without buffering the
-entire body in RAM. For other content types, this should perform identically to
-`rd.Download`.
+When `Content-Type` is missing and the request does have a body, returns an
+error.
+
+When `Content-Type` is missing and the request doesn't have a body, treats the
+request's URL query exactly like the body of a formdata request. See below.
+
+When `Content-Type` is `rd.TypeForm` (often called "formdata"), decodes the
+request's body via `rd.Form`. The output must be a pointer to a struct. See
+`rd.Form` about how this decoding works.
+
+When `Content-Type` is `rd.TypeMulti`, decodes the request's text data via
+`rd.Form`, and populates `req.MultipartForm` as a side effect. Downloaded files
+become available via `req.MultipartForm.File`.
+
+When `Content-Type` is `rd.TypeJson`, decodes the body into the output in a
+streaming fashion, using `json.Decoder`. The output must be a pointer to any
+value compatible with the structure of the provided JSON.
 */
 func Decode(req *http.Request, out interface{}) error {
 	if req == nil || out == nil {
 		return nil
 	}
 
-	if isReqReadOnly(req) {
-		return Form(req.URL.Query()).Decode(out)
-	}
-
 	typ := reqContentType(req)
 
 	switch typ {
-	case TypeJson:
-		return errBadReq(json.NewDecoder(req.Body).Decode(out))
+	case ``:
+		if reqHasBody(req) {
+			return errContentType(typ)
+		}
+		return Form(reqQuery(req)).Decode(out)
 
 	case TypeForm:
 		var dec Form
-		err := dec.Download(req)
+		err := dec.DownloadForm(req)
 		if err != nil {
 			return err
 		}
@@ -131,6 +136,13 @@ func Decode(req *http.Request, out interface{}) error {
 			return err
 		}
 		return dec.Decode(out)
+
+	case TypeJson:
+		body := req.Body
+		if body == nil {
+			return nil
+		}
+		return errBadReq(json.NewDecoder(body).Decode(out))
 
 	default:
 		return errContentType(typ)
@@ -140,57 +152,63 @@ func Decode(req *http.Request, out interface{}) error {
 // Shortcut for `rd.Download` that panics on errors.
 func TryDownload(req *http.Request) Dec {
 	dec, err := Download(req)
-	try(err)
+	if err != nil {
+		panic(err)
+	}
 	return dec
 }
 
 /*
-Downloads and partially decodes the request, returning a fully-buffered decoder,
-appropriately chosen for the request type. Transparently supports multiple
-content types: URL query, URL-encoded body, multipart body, and JSON. For
-read-only requests, returns `rd.Form` populated ONLY from the URL query. For
-JSON requests, returns `rd.Json` containing the fully-buffered response body,
-without any decoding or modification. For URL-encoded requests and multipart
-requests, returns `rd.Form` populated from the request body.
+Downloads the request's data, using the request's `Content-Type` header to
+choose the appropriate decoder type. Unlike `Decode`, this always buffers
+the request data in memory.
 
-If the request is multipart, this also populates `req.MultipartForm` as a side
-effect. Downloaded files become available via `req.MultipartForm.File`.
+When `Content-Type` is present but unrecognized, returns an error.
+
+When `Content-Type` is missing and the request does have a body, returns an
+error.
+
+When `Content-Type` is missing and the request doesn't have a body, returns
+`rd.Form` with the request's URL query.
+
+When `Content-Type` is `rd.TypeForm` (often called "formdata"), returns
+`rd.Form` with the request's body.
+
+When `Content-Type` is `rd.TypeMulti`, returns `rd.Form` with the text component
+of the request body, and populates `req.MultipartForm` as a side effect.
+Downloaded files become available via `req.MultipartForm.File`.
+
+When `Content-Type` is `rd.TypeJson`, returns `rd.Json` containing the
+downloaded response body, without any decoding or modification.
 */
 func Download(req *http.Request) (Dec, error) {
 	if req == nil {
-		return nop{}, nil
-	}
-
-	if isReqReadOnly(req) {
-		return Form(req.URL.Query()), nil
+		return decEmpty{}, nil
 	}
 
 	typ := reqContentType(req)
 
 	switch typ {
-	case TypeJson:
-		var dec Json
-		err := dec.Download(req)
-		if err != nil {
-			return nil, err
+	case ``:
+		if reqHasBody(req) {
+			return nil, errContentType(typ)
 		}
-		return dec, nil
+		return Form(reqQuery(req)), nil
 
 	case TypeForm:
 		var dec Form
 		err := dec.DownloadForm(req)
-		if err != nil {
-			return nil, err
-		}
-		return dec, nil
+		return dec, err
 
 	case TypeMulti:
 		var dec Form
 		err := dec.DownloadMultipart(req)
-		if err != nil {
-			return nil, err
-		}
-		return dec, nil
+		return dec, err
+
+	case TypeJson:
+		var dec Json
+		err := dec.Download(req)
+		return dec, err
 
 	default:
 		return nil, errContentType(typ)

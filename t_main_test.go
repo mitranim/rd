@@ -77,6 +77,18 @@ var testPtrOuterSimple = PtrOuter{
 	OuterStr: `outer val`,
 }
 
+var testOuterQuery = url.Values{
+	`embedStr`: {`embed val`},
+	`embedNum`: {`10`},
+	`outerStr`: {`outer val`},
+}
+
+var testOuterQuerySet = rd.Set{
+	`embedStr`: struct{}{},
+	`embedNum`: struct{}{},
+	`outerStr`: struct{}{},
+}
+
 const testOuterJson = `{
 	"embedStr": "embed val",
 	"embedNum": 10,
@@ -87,28 +99,16 @@ const testOuterJson = `{
 	"outerStr": "outer val"
 }`
 
-var testOuterJsonSet = rd.Set{
-	`embedStr`: struct{}{},
-	`embedNum`: struct{}{},
-	`inner`:    struct{}{},
-	`outerStr`: struct{}{},
-}
-
 const testOuterSimpleJson = `{
 	"embedStr": "embed val",
 	"embedNum": 10,
 	"outerStr": "outer val"
 }`
 
-var testOuterQuery = url.Values{
-	`embedStr`: {`embed val`},
-	`embedNum`: {`10`},
-	`outerStr`: {`outer val`},
-}
-
-var testOuterQuerySet = rd.Set{
+var testOuterJsonSet = rd.Set{
 	`embedStr`: struct{}{},
 	`embedNum`: struct{}{},
+	`inner`:    struct{}{},
 	`outerStr`: struct{}{},
 }
 
@@ -257,11 +257,6 @@ func (self Req) Ptr() *http.Request {
 	return (*http.Request)(&self)
 }
 
-func (self Req) Get() Req {
-	self.Method = http.MethodGet
-	return self
-}
-
 func (self Req) Post() Req {
 	self.Method = http.MethodPost
 	return self
@@ -279,6 +274,11 @@ func (self Req) Query(val url.Values) Req {
 
 func (self Req) BodyReadCloser(val io.ReadCloser) Req {
 	self.Body = val
+	if val == nil {
+		self.ContentLength = 0
+	} else {
+		self.ContentLength = -1
+	}
 	return self
 }
 
@@ -329,14 +329,6 @@ func queryToMultipart(src url.Values) (string, io.Reader) {
 	return wri.FormDataContentType(), &buf
 }
 
-type panicReader struct{}
-
-var _ = io.Reader(panicReader{})
-
-func (panicReader) Read([]byte) (int, error) {
-	panic(`this reader is not supposed to be used`)
-}
-
 func parseNew(src string, typ r.Type) r.Value {
 	out := r.New(typ).Elem()
 	try(rd.Parse(src, out))
@@ -357,7 +349,7 @@ func (self *TimeParser) Parse(src string) error {
 func iter(count int) []struct{} { return make([]struct{}, count) }
 
 func set(vals ...string) rd.Set {
-	if len(vals) == 0 {
+	if !(len(vals) > 0) {
 		return nil
 	}
 

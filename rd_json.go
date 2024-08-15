@@ -19,12 +19,18 @@ Fully downloads the request body and stores it as-is, without any modification
 or validation. Used by `rd.Download`.
 */
 func (self *Json) Download(req *http.Request) error {
-	if req == nil || req.Body == nil {
+	if req == nil {
 		self.Zero()
 		return nil
 	}
 
-	out, err := io.ReadAll(req.Body)
+	body := req.Body
+	if body == nil {
+		self.Zero()
+		return nil
+	}
+
+	out, err := io.ReadAll(body)
 	if err != nil {
 		return errBadReq(err)
 	}
